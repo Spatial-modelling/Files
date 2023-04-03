@@ -1,24 +1,40 @@
+############################################################
+############################################################
+## Identification of optimal areas for conservation or restoration in a country of interest subject to biodiversity co-benefits.
+## Which species would benefit from that location? Which KBAs?
+
+## Analysis of additionality.
+## Is it viable given the revenues of crops in that area?
+## What carbon prices would we need?
+## Use spatial optimization to identify the areas.
+## Create Pareto and trade-off analysis using spatial optimization.
+############################################################
+############################################################
+
 library(terra)
-#library(rgeos)
-#library(sp)
-#library(rgdal)
-#library(sf)
-#library(e1071)
-#library("FinancialMath")
+library(rgeos)
+library(sp)
+library(rgdal)
+library(sf)
+library(e1071)
+library(rredlist)
+library("FinancialMath")
 
 ############################################################
 ############################################################
 ## read files
 countries = vect("world_countries_boundary_file_world_2002.shp")
-ecuador = countries[countries$NAME=="Ecuador"]
-plot(ecuador)
+peru = countries[countries$NAME=="Peru"]
+plot(peru)
 
+## biodiversity co-benefits
 mammals = rast("figure_1_mammal_richness_all_spp.tif")
 bird_richness = rast("figure_1_bird_richness_breeding_all_spp2.tif")
 amphibian = rast("figure_1_amphibian_richness_all_spp.tif")
-PAs = vect("WDPA_WDOECM_Apr2023_Public_ECU_shp-polygons.shp")
 mammalsCR = vect("mammalsCR.shp")
+PAs = vect("WDPA_WDOECM_Apr2023_Public_PER_shp-polygons.shp")
 
+## additionality
 ABG = rast("Avitabile_AGB_Map.tif")
 SOC = rast("GSOCmap1.5.0.tif")
 def_risk = rast("Global_transition_potential.tif")
@@ -28,141 +44,173 @@ accessibility =rast("accessibility_to_cities_2015_v1.0.tif")
 ############################################################
 ############################################################
 ## clip maps and ensure same projection
-ecuador2 = terra::project(ecuador,crs(mammals))
-mammals_ecuador = mask(mammals,ecuador2)
+## biodiversity co-benefits
+peru2 = terra::project(peru,crs(mammals))
+mammals_peru = mask(mammals,peru2)
+peru2 = terra::project(peru,crs(bird_richness))
+bird_richness_peru = mask(bird_richness,peru2)
+peru2 = terra::project(peru,crs(amphibian))
+amphibian_peru = mask(amphibian,peru2)
+peru2 = terra::project(peru, crs(mammalsCR))
+mammalsCR_peru = mask(mammalsCR,peru2) #there are 5 polygons.
+peru2 = terra::project(peru,crs(PAs))
+PAs_peru = mask(PAs,peru2)
 
-ecuador2 = terra::project(ecuador,crs(bird_richness))
-bird_richness_ecuador = mask(bird_richness,ecuador2)
+## additionality
+peru2 = terra::project(peru,crs(ABG))
+ABG_peru = mask(ABG,peru2)
+peru2 = terra::project(peru,crs(SOC))
+SOC_peru = mask(SOC,peru2)
+peru2 = terra::project(peru,crs(def_risk))
+def_risk_peru = mask(def_risk,peru2)
+peru2 = terra::project(peru,crs(Cseq))
+Cseq_peru = mask(Cseq,peru2)
+peru2 = terra::project(peru,crs(accessibility))
+accessibility_peru = mask(accessibility,peru2)
 
-ecuador2 = terra::project(ecuador,crs(amphibian))
-amphibian_ecuador = mask(amphibian,ecuador2)
-
-ecuador2 = terra::project(ecuador,crs(PAs))
-PAs_ecuador = mask(PAs,ecuador2)
-
-ecuador2 = terra::project(ecuador, crs(mammalsCR))
-mammalsCR_ecuador = mask(mammalsCR,ecuador2) #there are 2 polygons.
-
-ecuador2 = terra::project(ecuador,crs(ABG))
-ABG_ecuador = mask(ABG,ecuador2)
-
-ecuador2 = terra::project(ecuador,crs(SOC))
-SOC_ecuador = mask(SOC,ecuador2)
-
-ecuador2 = terra::project(ecuador,crs(def_risk))
-def_risk_ecuador = mask(def_risk,ecuador2)
-
-ecuador2 = terra::project(ecuador,crs(Cseq))
-Cseq_ecuador = mask(Cseq,ecuador2)
-
-ecuador2 = terra::project(ecuador,crs(accessibility))
-accessibility_ecuador = mask(accessibility,ecuador2)
-
-ecuador2 = terra::project(ecuador,crs(ABG_ecuador))
-mammals_ecuador = terra::project(mammals_ecuador,crs(ABG_ecuador))
-bird_richness_ecuador = terra::project(bird_richness_ecuador,crs(ABG_ecuador))
-amphibian_ecuador = terra::project(amphibian_ecuador,crs(ABG_ecuador))
-PAs_ecuador = terra::project(PAs_ecuador,crs(ABG_ecuador))
-mammalsCR_ecuador = terra::project(mammalsCR_ecuador,crs(ABG_ecuador))
-SOC_ecuador = terra::project(SOC_ecuador,crs(ABG_ecuador))
-def_risk_ecuador = terra::project(def_risk_ecuador,crs(ABG_ecuador))
-Cseq_ecuador = terra::project(Cseq_ecuador,crs(ABG_ecuador))
-accessibility_ecuador = terra::project(accessibility_ecuador,crs(ABG_ecuador))
+peru2 = terra::project(peru,crs(ABG_peru))
+mammals_peru = terra::project(mammals_peru,crs(ABG_peru))
+bird_richness_peru = terra::project(bird_richness_peru,crs(ABG_peru))
+amphibian_peru = terra::project(amphibian_peru,crs(ABG_peru))
+PAs_peru = terra::project(PAs_peru,crs(ABG_peru))
+mammalsCR_peru = terra::project(mammalsCR_peru,crs(ABG_peru))
+SOC_peru = terra::project(SOC_peru,crs(ABG_peru))
+def_risk_peru = terra::project(def_risk_peru,crs(ABG_peru))
+Cseq_peru = terra::project(Cseq_peru,crs(ABG_peru))
+accessibility_peru = terra::project(accessibility_peru,crs(ABG_peru))
 
 ## Convert to raster for PAs
-r = rast(as(ABG_ecuador, "SpatRaster"))
-r = rast(ext(ecuador),nrow=500,ncol=500)
-crs(r) = crs(ABG_ecuador)
-PAs_ecuador$val1 = rep(1,nrow(PAs_ecuador))
-head(PAs_ecuador)
-PAs_ecuador_raster = rasterize(PAs_ecuador, r, field="val1", background = 0)
-plot(PAs_ecuador)
-plot(PAs_ecuador_raster,add=TRUE)
+r = rast(as(ABG_peru, "SpatRaster"))
+r = rast(ext(peru),nrow=500,ncol=500)
+crs(r) = crs(ABG_peru)
+PAs_peru$val1 = rep(1,nrow(PAs_peru))
+head(PAs_peru)
+PAs_peru_raster = rasterize(PAs_peru, r, field="val1", background = 0)
+plot(PAs_peru)
+plot(PAs_peru_raster,add=TRUE)
 
 ############################################################
 ############################################################
 ## write maps to computer
-writeVector(ecuador2,"ecuador2.shp",filetype = NULL,layer = NULL, insert = FALSE, overwrite = T)
-writeRaster(mammals_ecuador,"mammals_ecuador.tiff",overwrite = T, NAflag = 0)
-writeRaster(bird_richness_ecuador,"bird_richness_ecuador.tiff",overwrite = T, NAflag = 0)
-writeRaster(amphibian_ecuador,"amphibian_ecuador.tiff",overwrite = T, NAflag = 0)
-writeRaster(PAs_ecuador_raster,"PAs_ecuador_raster.tiff",overwrite = T, NAflag = 0)
-writeRaster(ABG_ecuador,"ABG_ecuador.tiff",overwrite = T, NAflag = 0)
-writeRaster(SOC_ecuador,"SOC_ecuador.tiff",overwrite = T, NAflag = 0)
-writeRaster(def_risk_ecuador,"def_risk_ecuador.tiff",overwrite = T, NAflag = 0)
-writeRaster(Cseq_ecuador,"Cseq_ecuador.tiff",overwrite = T, NAflag = 0)
-writeRaster(accessibility_ecuador,"accessibility_ecuador.tiff",overwrite = T, NAflag = 0)
+writeVector(peru2,"peru2.shp",filetype = NULL,layer = NULL, insert = FALSE, overwrite = T)
+writeRaster(mammals_peru,"mammals_peru.tiff",overwrite = T, NAflag = 0)
+writeRaster(bird_richness_peru,"bird_richness_peru.tiff",overwrite = T, NAflag = 0)
+writeRaster(amphibian_peru,"amphibian_peru.tiff",overwrite = T, NAflag = 0)
+writeRaster(PAs_peru_raster,"PAs_peru_raster.tiff",overwrite = T, NAflag = 0)
+writeRaster(ABG_peru,"ABG_peru.tiff",overwrite = T, NAflag = 0)
+writeRaster(SOC_peru,"SOC_peru.tiff",overwrite = T, NAflag = 0)
+writeRaster(def_risk_peru,"def_risk_peru.tiff",overwrite = T, NAflag = 0)
+writeRaster(Cseq_peru,"Cseq_peru.tiff",overwrite = T, NAflag = 0)
+writeRaster(accessibility_peru,"accessibility_peru.tiff",overwrite = T, NAflag = 0)
+
+
+
+
 
 ############################################################
-####################.  protect areas.  #####################
+###################.  protected areas.  ####################
 ############################################################
 ## Get the average protected areas cover with extract
-meanPAcover = extract(x = PAs_ecuador_raster, y = ecuador, method='simple', buffer=NULL,fun=mean, na.rm=TRUE)
-meanPAcover
+meanPAcover = extract(x = PAs_peru_raster, y = peru, method='simple', buffer=NULL,fun=mean, na.rm=TRUE)
+meanPAcover # 15.16%
 
 ############################################################
-###################.  endemic mammals   ####################
+###############.  biodiversity co-benefits.  ###############
 ############################################################
 ## mammals under protected area
-mammalsCR_ecuador_PA = extract(PAs_ecuador_raster, mammalsCR_ecuador, "mean")
-mammalsCR_ecuador$proporPA = mammalsCR_ecuador_PA[,2]
-mammalsCR_ecuador_ordered = mammalsCR_ecuador[order(mammalsCR_ecuador$proporPA),]
-head(mammalsCR_ecuador_ordered, 2)
+mammalsCR_peru_PA = extract(PAs_peru_raster, mammalsCR_peru, "mean")
+mammalsCR_peru$proporPA = mammalsCR_peru_PA[,2]
+mammalsCR_peru_ordered = mammalsCR_peru[order(mammalsCR_peru$proporPA),]
+head(mammalsCR_peru_ordered,5)
 
-## Subset the dataset for the Brown-headed Spider Monkey (Ateles fusciceps).
-BSMonkey = mammalsCR[mammalsCR$binomial == "Ateles fusciceps",]
-writeVector(BSMonkey, "BSMonkey.shp", filetype=NULL, layer=NULL,insert=FALSE, overwrite=FALSE)
-plot(BSMonkey,add=T) ##there are 2 polygons.
+## Subset the dataset for the San Martin Titi Monkey (Plecturocebus oenanthe).
+SMT_monkey = mammalsCR[mammalsCR$binomial == "Callicebus oenanthe",]
+writeVector(SMT_monkey, "SMT_monkey.shp", filetype=NULL, layer=NULL,insert=FALSE, overwrite=T)
+plot(SMT_monkey,add=T) ## 1 polygon.
+
+## Subset the dataset for the Peruvian Yellow-tailed Woolly Monkey (Lagothrix flavicauda).
+PYW_monkey = mammalsCR[mammalsCR$binomial == "Oreonax flavicauda",]
+writeVector(PYW_monkey, "PYW_monkey.shp", filetype=NULL, layer=NULL,insert=FALSE, overwrite=T)
+plot(PYW_monkey,add=T) ## 3 polygons.
+
+## Subset the dataset for the Zuniga's Dark Rice Rat (Melanomys zunigae).
+ZDR_rat = mammalsCR[mammalsCR$binomial == "Melanomys zunigae",]
+writeVector(ZDR_rat, "ZDR_rat.shp", filetype=NULL, layer=NULL,insert=FALSE, overwrite=T)
+plot(ZDR_rat,add=T) ## 1 polygon.
+
+## Obtain the altitudinal range and habitat preferences 
+Sys.setenv(IUCN_KEY = "8216510921738e31db13524aa79d5afd50a0a8feb00ec64d409f77c42b424ced")
+apikey <- Sys.getenv("IUCN_KEY")
+
+## for area of habitat estimation
+rl_habitats('Plecturocebus oenanthe', key = apikey) # forest-dependent
+hh1 = rl_search('Plecturocebus oenanthe', key = apikey)
+hh1$result$elevation_upper # 1364
+hh1$result$elevation_lower # 175
+
+## for area of habitat estimation
+rl_habitats('Lagothrix flavicauda', key = apikey) # forest-dependent
+hh2 = rl_search('Lagothrix flavicauda', key = apikey)
+hh2$result$elevation_upper # 2700
+hh2$result$elevation_lower # 1100
+
+## for area of habitat estimation
+rl_habitats('Melanomys zunigae', key = apikey) # Independent of forest
+hh3 = rl_search('Melanomys zunigae', key = apikey)
+hh3$result$elevation_upper # 800
+hh3$result$elevation_lower # 600
+
+
+
+
 
 
 ############################################################
-#######################.  carbon.  #########################
+########################.  CO2.  ###########################
 ############################################################
-## Assuming that the ratio of below-ground biomass to above-ground biomass in Myanmar is similar.
-## For tropical forests, the carbon is roots is approximately 25% of the carbon aboveground.
-BG_ecuador = 0.25*ABG_ecuador
+## Assuming that the ratio of below-ground biomass to above-ground biomass in Peru is similar to that of tropical forests.
+## Use the IPCC ratio to obtain a map of below-ground biomass.
+BG_peru = 0.37*ABG_peru
 
 ## Plot both below- and above-ground map
 par(mfrow = c(1,2))
-plot(ABG_ecuador,ext = ext(ecuador))
-plot(BG_ecuador,ext = ext(ecuador))
+plot(ABG_peru,ext = ext(peru))
+plot(BG_peru,ext = ext(peru))
 
 ## Make the soil carbon map compatible in terms of resolution and extent with the above-ground biomass map.
-r1 = SOC_ecuador
-r2 = ABG_ecuador
+r1 = SOC_peru
+r2 = ABG_peru
 r.new = resample(r1, r2, "bilinear")
 ex = ext(r.new)
 r2 = crop(r2, ex)
 r.new = mask(r.new, r2)
-ABG_ecuador2 = r2
-SOC_ecuador2 = r.new
+ABG_peru2 = r2
+SOC_peru2 = r.new
 
-## Combine the above-ground, below-ground and soil carbon map  to estimate CO2 emissions of natural habitat conversion to agriculture. 
-ABG_ecuador_CO2 = ABG_ecuador2*0.49*(44/12)
-BG_ecuador_CO2 = BG_ecuador*0.49*(44/12)
+## Combine the above-ground, below-ground and soil carbon map  
+## to estimate CO2 emissions of natural habitat conversion to agriculture. 
+ABG_peru_CO2 = ABG_peru2*0.49*(44/12)
+BG_peru_CO2 = BG_peru*0.49*(44/12)
 # assume 75% retained by agricultural land use.
-SOC_ecuador_CO2 = SOC_ecuador2*(44/12)*0.25
+SOC_peru_CO2 = SOC_peru2*(44/12)*0.25
 # Assuming a litter and dead wood density of 2.1 tons/ha.
-Litter_ecuador_CO2 = 2.1*(44/12)
+Litter_peru_CO2 = 2.1*(44/12)
 
-total_CO2 = ABG_ecuador_CO2 + BG_ecuador_CO2 + SOC_ecuador_CO2 + Litter_ecuador_CO2
+total_CO2 = ABG_peru_CO2 + BG_peru_CO2 + SOC_peru_CO2 + Litter_peru_CO2
 
-plot(total_CO2,ext = ext(ecuador))
+plot(total_CO2,ext = ext(peru))
 
 ## total_CO2 map is quite useful. 
 ## We can multiply it by a given carbon price to obtain the revenue that projects that avoid natural habitat clearing would generate.
 ## For instance, where can nature-based solutions generate more than $3000/ha if carbon price is $25?
 viable = total_CO2*25 > 3000
-plot(viable,ext = ext(ecuador))
+plot(viable,ext = ext(peru))
 
 ## Estimate the average carbon emissions for Ecuador
-mean_CO2 = extract(x = total_CO2, y = ecuador, method='simple', buffer=NULL,fun=mean, na.rm=TRUE)
-mean_CO2
-
-## Estimate the average carbon emissions per unit of area in each concession.
+mean_CO2 = extract(x = total_CO2, y = peru, method='simple', buffer=NULL,fun=mean, na.rm=TRUE)
+mean_CO2 # 421.6766
 
 
-## estimate the area in each concession and multiply with the average carbon emissions in each concession.
 
 
 
@@ -171,19 +219,19 @@ mean_CO2
 ############################################################
 ## Identify the areas where an avoided carbon emissions project would be addition.
 ## Make the map compatible with total_CO2 map.
-r1 = def_risk_ecuador
+r1 = def_risk_peru
 r2 = total_CO2
 r.new = resample(r1, r2, "bilinear")
 ex = ext(r.new)
 r2 = crop(r2, ex)
 r.new = mask(r.new, r2)
 total_CO2_2 = r2
-def_risk_ecuador2 = r.new
+def_risk_peru2 = r.new
 
 ## In areas where probability of losing the forest is less than 0.5, 
 ## we consider it is not additional and there is no carbon to get credits for the project.
-additionalC = (def_risk_ecuador2>0.5)*total_CO2_2
-plot(additionalC,ext = ext(ecuador))
+additionalC = (def_risk_peru2>0.5)*total_CO2_2
+plot(additionalC,ext = ext(peru))
 
 ## Imagine that setting up an avoided carbon emissions project involves paying landowners $100/ha*year,
 ## and annual remote sensing monitoring that involve auditors fees of $5 ha/year.
@@ -195,41 +243,42 @@ projectCostNPV = NPV1*(100+5)
 ## In which areas is the project still financially viable for a carbon price of $30?
 ## Assuming that the natural habitat clearance would occur on the first time period
 ## so that one off value of emissions externality equates to the NPV
-plot(additionalC*30>projectCostNPV,ext = ext(ecuador))
+plot(additionalC*30>projectCostNPV,ext = ext(peru))
 ### Should it we use $30 here?
 
 ############################################################
 ###########.  Potential carbon sequestration.  #############
 ############################################################
 ## making the map compatible with total_CO2 map
-r1 = Cseq_ecuador
+r1 = Cseq_peru
 r2 = total_CO2
 r.new = resample(r1, r2, "bilinear")
 ex = ext(r.new)
 r2 = crop(r2, ex)
 r.new = mask(r.new, r2)
 total_CO2_2 = r2
-Cseq_ecuador2 = r.new
+Cseq_peru2 = r.new
 
 ## What are the revenues for potential restoration projects?
 ## Assuming this level of sequestration rates is maintained for 50 years.
 ## Assuming a 6% discount rate and $25/ton CO2. Here we obtain the NPV or a $1 over 50 years, we can later just multiply by the $ value in each cell in tons of CO2 per hectare.
 NPV2 = NPV(cf0 = 0,cf=rep(1,T),times=seq(1,T,1),i = 0.06)
-Cseq_ecuador_NPV = NPV1*Cseq_ecuador2*25*(44/12)
-plot(Cseq_ecuador_NPV,ext = ext(ecuador))
+Cseq_peru_NPV = NPV1*Cseq_peru2*25*(44/12)
+plot(Cseq_peru_NPV,ext = ext(peru))
 
 ############################################################
 ##################.  Transport costs.  #####################
 ############################################################
 ## Make the map compatible with total_CO2 map
-r1 = accessibility_ecuador
+r1 = accessibility_peru
 r2 = total_CO2
 r.new = resample(r1, r2, "bilinear")
 ex = ext(r.new)
 r2 = crop(r2, ex)
 r.new = mask(r.new, r2)
 total_CO2_2 = r2
-accessibility_ecuador2 = r.new
+accessibility_peru2 = r.new
+
 
 
 
