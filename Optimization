@@ -9,3 +9,84 @@ p1 <- problem(PUs4, features = spsR,cost_column = "AR") %>%
   add_binary_decisions() %>%
   add_default_solver(gap = 0)
 
+print(p1)
+
+#Solve problem and store it.
+s1 <- solve(p1)
+#The output shows the progress in the objective function while optimizing.
+
+# extract the objective
+print(attr(s1, "objective"))
+
+# extract state message from the solver
+print(attr(s1, "status"))
+
+# let’s plot the solution
+plot(st_as_sf(s1[, "solution_1"]), main = "Prioritization",
+     pal = c("grey90", "darkgreen"))
+
+# Let’s compare with conservation costs
+plot(st_as_sf(PUs4[, "AR"]), main = "Planning unit costs")
+
+# calculate information describing how well the targets are met by the solution
+print(eval_target_coverage_summary(p1, s1[, "solution_1"]), width = Inf)
+
+# Set biodiversity features’ targets
+add_relative_targets(0.15) #Set target based on proportion of area covered.
+add_absolute_targets(10) #Set based on number of planning units.
+crs(PUs2) #We can see PUs2 is in m
+expanse(PUs2)/10000#The area of a whole planning unit is 2967 ha 
+# Same target for every species.
+targets <- c(0.5, 0.5, 0.05, 0.25, 0.1, 0.5)
+add_relative_targets(targets)
+
+#Taking into account of existing protected areas: locked-in constraints
+plot(st_as_sf(PUs4[, "PA"])) # 
+
+PUs4$PAlog <- PUs4$PA>0.5  # PAs need to be coded as TRUE or FALSE to be used in a locked-in constraint
+p2 <- problem(PUs4, features = spsStack2,
+              cost_column = "AR") %>%
+  add_min_set_objective() %>%
+  add_relative_targets(0.15) %>%
+  add_binary_decisions() %>%
+  add_default_solver(gap = 0) %>%
+  add_locked_in_constraints("PAlog")
+
+# solve the problem
+s2 <- solve(p2)
+
+# Let’s plot the solution
+plot(st_as_sf(s2[, "solution_1"]), pal = c("grey90", "darkgreen"))
+
+
+################################################
+###Consider all species.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
